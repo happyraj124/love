@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dimension: L.O.V.E. // SYSTEM OVERRIDE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Syncopate:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ff;
+            --alert-red: #ff0000;
+            --void-bg: #050510;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden; /* Prevents scrolling */
+            background-color: var(--void-bg);
+            font-family: 'Rajdhani', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            perspective: 1500px;
+            cursor: crosshair;
+            /* Prevent pull-to-refresh on mobile */
+            overscroll-behavior: none;
+        }
+
+        /* --- LAYERS --- */
+        #warp-canvas, #trail-canvas, .crt-overlay, .vignette, .glitch-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        
+        #warp-canvas { z-index: 0; }
+        #trail-canvas { z-index: 1; }
+        
+        .crt-overlay {
+            z-index: 90;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 6px 100%;
+        }
+
+        .vignette {
+            z-index: 91;
+            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.8) 100%);
+        }
+
+        /* --- HOLOGRAPHIC CARD (RESPONSIVE) --- */
+        .holo-card {
+            position: relative;
+            /* Responsive Widths */
+            width: 90%; 
+            max-width: 500px;
+            padding: 60px 40px;
+            
+            background: rgba(10, 10, 20, 0.65);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(0, 243, 255, 0.1);
+            transform-style: preserve-3d;
+            z-index: 10;
+            transition: box-shadow 0.3s, border-color 0.3s;
+        }
+
+        /* Mobile adjustments for the card */
+        @media (max-width: 600px) {
+            .holo-card {
+                padding: 40px 20px;
+                width: 95%;
+            }
+        }
+
+        .holo-card.alert-mode {
+            box-shadow: 0 0 80px rgba(255, 0, 0, 0.4);
+            border-color: var(--alert-red);
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both infinite;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0) rotate3d(0,1,0, -2deg); }
+            20%, 80% { transform: translate3d(2px, 0, 0) rotate3d(0,1,0, 2deg); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0) rotate3d(0,1,0, -2deg); }
+            40%, 60% { transform: translate3d(4px, 0, 0) rotate3d(0,1,0, 2deg); }
+        }
+
+        .parallax-layer {
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        .holo-shine {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 20px;
+            background: linear-gradient(115deg, transparent 30%, rgba(0, 243, 255, 0.3) 45%, rgba(255, 0, 255, 0.3) 55%, transparent 70%);
+            opacity: 0; pointer-events: none; mix-blend-mode: color-dodge; transition: opacity 0.3s;
+        }
+
+        /* --- UI ELEMENTS --- */
+        .gif-hud {
+            width: 140px; height: 140px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            border: 2px dashed var(--neon-blue);
+            padding: 5px;
+            position: relative;
+            animation: spinHUD 10s linear infinite;
+            transform: translateZ(40px);
+        }
+        
+        /* Smaller GIF on mobile */
+        @media (max-width: 600px) {
+            .gif-hud { width: 100px; height: 100px; }
+        }
+
+        .gif-hud img {
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            animation: counterSpin 10s linear infinite;
+        }
+
+        @keyframes spinHUD { 100% { transform: rotate(360deg) translateZ(40px); } }
+        @keyframes counterSpin { 100% { transform: rotate(-360deg); } }
+
+        h1 {
+            font-family: 'Syncopate', sans-serif;
+            text-transform: uppercase;
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, var(--neon-blue), white, var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 2px;
+            min-height: 40px;
+            transform: translateZ(30px);
+            word-wrap: break-word; /* Prevent overflow */
+        }
+
+        /* Responsive Text */
+        @media (max-width: 600px) {
+            h1 { font-size: 1.5rem; letter-spacing: 1px; }
+            p { font-size: 0.9rem; letter-spacing: 1px; }
+        }
+
+        p {
+            color: #aaa;
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            transform: translateZ(20px);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            position: relative;
+            transform: translateZ(50px);
+            flex-wrap: wrap; /* Allows wrapping on tiny screens */
+        }
+        
+        @media (max-width: 400px) {
+            .controls { gap: 15px; }
+        }
+
+        button {
+            padding: 18px 45px;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            border: none;
+            position: relative;
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        /* Smaller buttons on mobile */
+        @media (max-width: 600px) {
+            button { padding: 12px 25px; font-size: 1rem; }
+        }
+
+        .btn-yes {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+        }
+        
+        .btn-yes:hover, .btn-yes:active {
+            background: white;
+            box-shadow: 0 0 40px white;
+            transform: translateY(-2px);
+        }
+
+        .btn-no {
+            background: transparent;
+            color: var(--neon-pink);
+            border: 1px solid var(--neon-pink);
+            box-shadow: inset 0 0 10px rgba(255, 0, 255, 0.2);
+            transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .btn-no:hover, .btn-no:active {
+            background: rgba(255, 0, 255, 0.1);
+            text-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        /* Alert Mode UI Overrides */
+        .alert-mode h1 { background: linear-gradient(to right, #ff0000, #ff8800); -webkit-background-clip: text; }
+        .alert-mode .btn-no { color: #ff0000; border-color: #ff0000; box-shadow: inset 0 0 20px rgba(255, 0, 0, 0.5); }
+        
+        .hidden { display: none; }
+        .success-content h1 { -webkit-text-fill-color: #00ff88; }
+
+        /* Glitch Layer */
+        .glitch-overlay {
+            z-index: 100;
+            opacity: 0;
+            mix-blend-mode: hard-light;
+            background: repeating-linear-gradient(0deg, transparent, transparent 2px, #00ff00 4px, #ff0000 6px);
+        }
+        .glitch-active {
+            animation: glitch-flash 0.2s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+            opacity: 0.5;
+        }
+        @keyframes glitch-flash {
+            0% { transform: translate(0); filter: hue-rotate(0deg); }
+            20% { transform: translate(-10px, 10px); }
+            40% { transform: translate(10px, -10px); filter: invert(1); }
+            100% { transform: translate(0); filter: hue-rotate(0deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="warp-canvas"></canvas>
+    <canvas id="trail-canvas"></canvas>
+
+    <div class="crt-overlay"></div>
+    <div class="vignette"></div>
+    <div class="glitch-overlay" id="glitch-layer"></div>
+
+    <div class="holo-card" id="card">
+        <div class="holo-shine" id="shine"></div>
+        
+        <div id="main-interface" class="parallax-layer">
+            <div class="gif-hud">
+                <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3R6bXc5aDJ6bmF2YjF6Z3Z5bXF6bXc5aDJ6bmF2YjF6Z3Z5bXF6bCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/cLS1cfxvGOPVpf9g3y/giphy.gif" alt="Target">
+            </div>
+
+            <h1 id="hacker-text" data-value="INITIATE LOVE?">INITIATE LOVE?</h1>
+            <p id="status-text">Awaiting User Input...</p>
+
+            <div class="controls">
+                <button class="btn-yes" onclick="confirmLove()">AFFIRMATIVE</button>
+                <button class="btn-no" id="noBtn" onclick="denyLove()">NEGATIVE</button>
+            </div>
+        </div>
+
+        <div id="success-interface" class="hidden parallax-layer">
+            <div class="gif-hud" style="border-color: #00ff88;">
+                <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExa3V5cTZ1eG15bXc5aDJ6bmF2YjF6Z3Z5bXF6bXc5aDJ6bmF2YjF6Z3Z5bCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/T86i6yDyOYz7J6dPhf/giphy.gif" alt="Success">
+            </div>
+            <h1 data-value="ACCESS GRANTED" style="-webkit-text-fill-color: #00ff88;">ACCESS GRANTED</h1>
+            <p>Soulmate Protocol: CONNECTED ❤️</p>
+        </div>
+    </div>
+
+    <script>
+        // --- SYSTEM VARIABLES ---
+        let alertLevel = 0; 
+        let warpSpeed = 5;
+
+        // --- 1. RESPONSIVE CANVAS ENGINE ---
+        const canvas = document.getElementById('warp-canvas');
+        const ctx = canvas.getContext('2d');
+        const trailCanvas = document.getElementById('trail-canvas');
+        const trailCtx = trailCanvas.getContext('2d');
+
+        function resizeCanvases() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            trailCanvas.width = window.innerWidth;
+            trailCanvas.height = window.innerHeight;
+        }
+        resizeCanvases();
+        window.addEventListener('resize', resizeCanvases);
+
+        // Star Class
+        const stars = [];
+        class Star {
+            constructor() { this.init(); }
+            init() {
+                this.x = Math.random() * canvas.width - canvas.width / 2;
+                this.y = Math.random() * canvas.height - canvas.height / 2;
+                this.z = Math.random() * 1000;
+                this.color = alertLevel > 2 ? '#ff0000' : '#ffffff';
+            }
+            update(mouseX, mouseY) {
+                // Responsive Parallax: Reduced effect on smaller screens
+                const factor = window.innerWidth < 600 ? 0.001 : 0.005;
+                this.x -= (mouseX - window.innerWidth/2) * factor;
+                this.y -= (mouseY - window.innerHeight/2) * factor;
+                
+                this.z -= warpSpeed; 
+                if (this.z <= 0) this.init();
+            }
+            draw() {
+                let x = (this.x / this.z) * 500 + canvas.width / 2;
+                let y = (this.y / this.z) * 500 + canvas.height / 2;
+                let radius = (1 - this.z / 1000) * (alertLevel > 0 ? 4 : 2);
+                
+                ctx.beginPath();
+                ctx.fillStyle = `rgba(${alertLevel > 2 ? '255, 50, 50' : '255, 255, 255'}, ${1 - this.z / 1000})`;
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        for (let i = 0; i < 500; i++) stars.push(new Star());
+
+        // Trail Particle Class
+        const particles = [];
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 3 + 1;
+                this.speedX = Math.random() * 2 - 1;
+                this.speedY = Math.random() * 2 - 1;
+                this.life = 1;
+                this.color = alertLevel > 2 ? `255, 0, 0` : `0, 243, 255`;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.life -= 0.02;
+            }
+            draw() {
+                trailCtx.fillStyle = `rgba(${this.color}, ${this.life})`;
+                trailCtx.beginPath();
+                trailCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                trailCtx.fill();
+            }
+        }
+
+        // Global Mouse/Touch Tracker
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        
+        function handleMove(x, y) {
+            mouseX = x;
+            mouseY = y;
+            for(let i=0; i<2; i++) particles.push(new Particle(mouseX, mouseY));
+        }
+
+        document.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+        
+        // Mobile Touch Support for Trail
+        document.addEventListener('touchmove', (e) => {
+            const touch = e.touches[0];
+            handleMove(touch.clientX, touch.clientY);
+        });
+
+        // Main Animation Loop
+        function animate() {
+            ctx.fillStyle = "rgba(5, 5, 16, 0.5)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+
+            stars.forEach(star => { star.update(mouseX, mouseY); star.draw(); });
+
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].life <= 0) {
+                    particles.splice(i, 1);
+                    i--;
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+
+        // --- 2. MULTI-LAYER PARALLAX & HACKER TEXT ---
+        const card = document.getElementById('card');
+        const shine = document.getElementById('shine');
+        const hackerHeader = document.getElementById('hacker-text');
+
+        const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890@#$%&";
+        let hackerInterval = null;
+
+        function runHackerEffect(element) {
+            let iteration = 0;
+            const originalText = element.dataset.value;
+            clearInterval(hackerInterval);
+            
+            hackerInterval = setInterval(() => {
+                element.innerText = originalText.split("").map((letter, index) => {
+                    if(index < iteration) return originalText[index];
+                    return letters[Math.floor(Math.random() * 26)];
+                }).join("");
+                
+                if(iteration >= originalText.length) clearInterval(hackerInterval);
+                iteration += 1 / 3;
+            }, 30);
+        }
+        window.onload = () => runHackerEffect(hackerHeader);
+
+        // 3D Tilt - Supports Mouse & Touch
+        function handleTilt(x, y) {
+            const midX = window.innerWidth / 2;
+            const midY = window.innerHeight / 2;
+            
+            // Limit tilt intensity on mobile
+            const tiltFactor = window.innerWidth < 600 ? 5 : 15;
+
+            const rotateX = ((y - midY) / midY) * tiltFactor; 
+            const rotateY = ((x - midX) / midX) * tiltFactor;
+            
+            card.style.transform = `rotateX(${-rotateX}deg) rotateY(${rotateY}deg)`;
+
+            shine.style.backgroundPosition = `${x}px ${y}px`;
+            shine.style.opacity = 0.6;
+        }
+
+        document.addEventListener('mousemove', (e) => handleTilt(e.clientX, e.clientY));
+        document.addEventListener('touchmove', (e) => {
+            const touch = e.touches[0];
+            handleTilt(touch.clientX, touch.clientY);
+        });
+
+
+        // --- 3. GAME LOGIC ---
+        let denialCount = 0;
+        const noBtn = document.getElementById('noBtn');
+        const statusText = document.getElementById('status-text');
+        const glitchLayer = document.getElementById('glitch-layer');
+
+        const warnings = [
+            "⚠️ SYSTEM: COMPLIANCE REQUIRED",
+            "⚠️ WARNING: REALITY INSTABILITY",
+            "⚠️ CRITICAL: VOID LEAK DETECTED",
+            "⚠️ FATAL: SYSTEM LOCKDOWN IMMINENT",
+            "⛔ ERROR: OPTION 'NO' DEPRECATED"
+        ];
+
+        function denyLove() {
+            denialCount++;
+            
+            if (denialCount <= 5) {
+                alertLevel = denialCount;
+                warpSpeed = 5 + (denialCount * 5);
+                statusText.innerText = warnings[denialCount - 1];
+                runHackerEffect(hackerHeader);
+                
+                glitchLayer.classList.add('glitch-active');
+                setTimeout(() => glitchLayer.classList.remove('glitch-active'), 300);
+            }
+
+            if (denialCount === 3) {
+                card.classList.add('alert-mode');
+                statusText.style.color = "#ff0000";
+            }
+
+            if (denialCount >= 5) {
+                activateEvasionProtocol();
+            }
+        }
+
+        function activateEvasionProtocol() {
+            statusText.innerText = "⛔ ACCESS DENIED: BUTTON LOCKED";
+            noBtn.innerText = "LOCKED";
+            noBtn.style.position = 'fixed'; // Changes to fixed for full screen movement
+            
+            // Mouse & Touch Listeners
+            noBtn.addEventListener('mouseover', moveButtonSafe);
+            noBtn.addEventListener('touchstart', (e) => { 
+                e.preventDefault(); // Prevents click on mobile if touched
+                moveButtonSafe(); 
+            });
+            moveButtonSafe();
+        }
+
+        function moveButtonSafe() {
+            const winW = window.innerWidth;
+            const winH = window.innerHeight;
+            const btnW = noBtn.offsetWidth;
+            const btnH = noBtn.offsetHeight;
+            const padding = 20;
+
+            const maxLeft = winW - btnW - padding;
+            const maxTop = winH - btnH - padding;
+
+            const newLeft = Math.max(padding, Math.random() * maxLeft);
+            const newTop = Math.max(padding, Math.random() * maxTop);
+
+            noBtn.style.left = newLeft + 'px';
+            noBtn.style.top = newTop + 'px';
+        }
+
+        function confirmLove() {
+            document.getElementById('main-interface').style.display = 'none';
+            document.getElementById('success-interface').classList.remove('hidden');
+            
+            alertLevel = 0;
+            warpSpeed = 2;
+            card.classList.remove('alert-mode');
+            card.style.transform = `rotateX(0deg) rotateY(0deg)`;
+            
+            confetti({
+                particleCount: 200,
+                spread: 100,
+                origin: { y: 0.6 },
+                colors: ['#00f3ff', '#ff00ff', '#ffffff']
+            });
+
+            const successHeader = document.querySelector('#success-interface h1');
+            runHackerEffect(successHeader);
+        }
+
+    </script>
+</body>
+</html>
